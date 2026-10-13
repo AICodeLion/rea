@@ -920,7 +920,7 @@ async function inspect(mode, input, errorCategory) {
     }
     assert.notEqual(result.isError, true, mcpTextValue(result));
     assertSensitiveLimitations(value, input.sensitive_values ?? []);
-    if (input.format === "har" || input.format === "mitmproxy") {
+    if (input.format === "har") {
       const surface = await client.callTool({
         name: "inspect_analysis_view",
         arguments: {

@@ -191,10 +191,6 @@ export function apiSurfaceRecordFacts(
   if (!parsed.success) return excluded("request-unavailable");
   if (typeof parsed.data.type !== "string")
     return excluded("flow-type-unavailable");
-  if (parsed.data.type !== "http") return excluded("non-http-flow");
-  const parsedRequest = nativeRequestSchema.safeParse(parsed.data.request);
-  if (!parsedRequest.success) return excluded("request-unavailable");
-  const request = parsedRequest.data;
   // Index the producer's coordinates once rather than rescan sidecars for every
   // header. Duplicate coordinates remain ambiguous, including identical ones.
   const reserved = admit(record.binary_fields.length * 32);
@@ -204,7 +200,11 @@ export function apiSurfaceRecordFacts(
     index.set(field.pointer, index.has(field.pointer) ? null : field);
   const flowType = nativeText(index, "/type", parsed.data.type, admit);
   if (!flowType.ok) return flowType;
-  if (flowType.value !== "http") return excluded("flow-type-unavailable");
+  if (flowType.value === null) return excluded("flow-type-unavailable");
+  if (flowType.value !== "http") return excluded("non-http-flow");
+  const parsedRequest = nativeRequestSchema.safeParse(parsed.data.request);
+  if (!parsedRequest.success) return excluded("request-unavailable");
+  const request = parsedRequest.data;
   const texts: (string | null)[] = [];
   for (const name of ["method", "scheme", "host", "path"] as const) {
     const text = nativeText(index, `/request/${name}`, request[name], admit);
