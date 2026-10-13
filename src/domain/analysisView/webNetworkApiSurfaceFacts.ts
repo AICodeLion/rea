@@ -14,6 +14,7 @@ export const apiSurfaceExclusionSchema = z.enum([
   "request-unavailable",
   "method-unavailable",
   "non-http-flow",
+  "flow-type-unavailable",
   "unsupported-request-target",
 ]);
 type ApiSurfaceExclusion = z.infer<typeof apiSurfaceExclusionSchema>;
@@ -188,6 +189,8 @@ export function apiSurfaceRecordFacts(
   }
   const parsed = nativeSchema.safeParse(record.reported);
   if (!parsed.success) return excluded("request-unavailable");
+  if (typeof parsed.data.type !== "string")
+    return excluded("flow-type-unavailable");
   if (parsed.data.type !== "http") return excluded("non-http-flow");
   const parsedRequest = nativeRequestSchema.safeParse(parsed.data.request);
   if (!parsedRequest.success) return excluded("request-unavailable");
@@ -199,6 +202,9 @@ export function apiSurfaceRecordFacts(
   const index = new Map<string, Binary | null>();
   for (const field of record.binary_fields)
     index.set(field.pointer, index.has(field.pointer) ? null : field);
+  const flowType = nativeText(index, "/type", parsed.data.type, admit);
+  if (!flowType.ok) return flowType;
+  if (flowType.value !== "http") return excluded("flow-type-unavailable");
   const texts: (string | null)[] = [];
   for (const name of ["method", "scheme", "host", "path"] as const) {
     const text = nativeText(index, `/request/${name}`, request[name], admit);

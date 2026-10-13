@@ -27,6 +27,23 @@ const project = (
   return result.value;
 };
 
+it("keeps missing or contradictory flow identity unavailable rather than classifying it as non-HTTP", () => {
+  const capture = nativeApiSurfaceCapture();
+  capture.records = capture.records.slice(0, 2);
+  capture.records[0]!.reported = { type: null };
+  const second = capture.records[1]!;
+  const methodBytes = second.binary_fields.find(
+    (field) => field.pointer === "/request/method",
+  )!;
+  second.binary_fields.push({ ...methodBytes, pointer: "/type" });
+  const surface = project(capture);
+  expect(surface.groups).toEqual([]);
+  expect(surface.excluded_records).toEqual([
+    { ordinal: 0, reason: "flow-type-unavailable" },
+    { ordinal: 1, reason: "flow-type-unavailable" },
+  ]);
+});
+
 it("groups original native HTTP text, keeps response uncertainty and excludes other targets", () => {
   const surface = project();
   expect(surface.groups).toMatchObject([

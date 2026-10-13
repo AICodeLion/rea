@@ -227,7 +227,8 @@ credentials, headers and bodies are not copied into groups.
 Native HTTP flows use the producer's method, scheme, host, port and request
 target. Origin-form and absolute HTTP(S) targets require explicit, consistent
 origin facts. IPv6 hosts retain their address semantics. Non-HTTP flows are
-excluded as `non-http-flow`; CONNECT, asterisk, relative and conflicting absolute
+excluded as `non-http-flow`; missing or contradictory flow identity as
+`flow-type-unavailable`; CONNECT, asterisk, relative and conflicting absolute
 targets as `unsupported-request-target`. Missing or unreadable request facts
 remain excluded rather than receiving a guessed origin. Native retained byte
 sidecars must agree with their producer text, byte count and digest; ambiguous
