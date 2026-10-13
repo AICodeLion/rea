@@ -30,6 +30,7 @@ describe("real Windows Ghidra workflow trust boundary", () => {
               uses: expect.stringMatching(/^actions\/setup-node@[0-9a-f]{40}$/),
             }),
             expect.objectContaining({ run: "npm ci" }),
+            expect.objectContaining({ run: "npm run verify:ghidra:bridge" }),
             expect.objectContaining({
               env: { REA_ANALYSIS_PROVIDER: "ghidra" },
               run: "npm run verify:ghidra:windows | Tee-Object -FilePath windows-ghidra-proof.log",
@@ -46,5 +47,16 @@ describe("real Windows Ghidra workflow trust boundary", () => {
         },
       },
     });
+    const steps = workflow.jobs.verify.steps as { run?: string }[];
+    const compile = steps.findIndex(
+      (step) => step.run === "npm run verify:ghidra:bridge",
+    );
+    const target = steps.findIndex((step) =>
+      step.run?.startsWith("npm run verify:ghidra:windows"),
+    );
+    expect(compile).toBeGreaterThan(
+      steps.findIndex((step) => step.run === "npm ci"),
+    );
+    expect(target).toBeGreaterThan(compile);
   });
 });

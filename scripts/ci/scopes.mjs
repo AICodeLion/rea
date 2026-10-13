@@ -2,6 +2,11 @@
 // Shared build inputs are classified once in plan.mjs rather than repeated in
 // every workflow.
 export const SCOPES = {
+  ghidra_bridge: [
+    "bridge/ghidra/**",
+    "scripts/verify-ghidra-bridge.mjs",
+    ".github/workflows/ghidra-bridge-preflight.yml",
+  ],
   // Apple artifact CLI/MCP lane on macOS, including its focused regressions.
   apple: [
     "src/native/Apple*",

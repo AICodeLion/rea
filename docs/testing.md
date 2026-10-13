@@ -369,6 +369,19 @@ prove behavior on the verified Ghidra 12.1.4 and JDK 21 build.
 | `npm run verify:ghidra:cross-format`       | Any supported Ghidra host; also analyzes AArch64 ELF, x86-64 PE, and x86-64 Mach-O              | `clang`, LLD, and `lld-link` in addition to host-lane prerequisites |
 | `npm run verify:ghidra:windows`            | Controlled Windows x64 with native x86-64 PE; `-- --x86` selects native x86 PE                  | Ghidra 12.1.4, full JDK 21, and the matching native artifact        |
 
+`npm run verify:ghidra:bridge` compiles every packaged `bridge/ghidra/*.java`
+source against the caller's existing `GHIDRA_INSTALL_DIR` API jars using JDK 21
+or newer (`JAVA_HOME`, or `javac` on PATH). It needs no runtime build, native
+artifact, C compiler or target. Annotation processing is disabled, diagnostics
+retain javac's file/line/symbol output, and temporary class files are removed
+before success. CI selects a hosted Ubuntu compile lane for packaged bridge,
+preflight script and lane changes, and includes it in the required gate and full
+qualification. That lane reads verified Ghidra 12.1.4 jars and the runner's
+existing JDK 21 without starting a provider. The controlled Windows workflow
+also runs the preflight before target analysis; its default-branch dispatch
+trust boundary is unchanged.
+NativeAOT and Android bridges keep their separate toolchain requirements.
+
 The optional Swift lane compiles a source-owned fixture and checks modern and
 provider-demangled procedure names through real stdio MCP, with and without the
 dSYM companion. It checks unfiltered, structs, and literal-name filters,

@@ -145,6 +145,18 @@ it("keeps every translated README and authored guide on the documentation lane",
 });
 
 it.each([
+  "bridge/ghidra/ReaGhidraBridge.java",
+  "scripts/verify-ghidra-bridge.mjs",
+  ".github/workflows/ghidra-bridge-preflight.yml",
+])("selects the bridge compile lane for %s", async (path) => {
+  const { directory, base } = await fixture();
+  const head = await change(directory, [path]);
+  const plan = await classify(directory, base, head);
+  expect(plan.ghidra_bridge).toBe(true);
+  expect(plan.nativeaot).toBe(false);
+});
+
+it.each([
   "job-timings.mjs",
   "job-timings-batch.mjs",
   "test-report.mjs",
@@ -692,6 +704,7 @@ it.each([
   ["web_runtime", "real-web-runtime"],
   ["web_source_map", "real-web-source-map"],
   ["nativeaot", "nativeaot-fixtures"],
+  ["ghidra_bridge", "ghidra-bridge-preflight"],
   ["website", "website-check"],
 ])(
   "routes %s through the selector without a duplicate PR trigger",
