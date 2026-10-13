@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { writeFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { parseEvidence } from "../../dist/domain/evidence.js";
+import { runOwnedCommand } from "../../dist/process/OwnedCommand.js";
 import { mcpTextValue } from "./mcp-verifier-results.mjs";
 
 /** Real native decoding once, followed by portable/retained projections offline. */
@@ -13,6 +13,19 @@ export async function verifyNativeApiSurface({
   environment,
   directory,
 }) {
+  // Keep caller-relative entrypoints relative to the original verifier cwd.
+  const cwd = process.cwd();
+  const runCli = (args, env = environment, timeoutMs = 30_000) =>
+    runOwnedCommand(
+      {
+        command: process.execPath,
+        arguments: [entrypoint, ...args],
+        cwd,
+        runId: `rea-native-surface-${randomUUID()}`,
+        hostEnvironment: env,
+      },
+      { timeoutMs, diagnosticBytes: 4 * 1024 * 1024 },
+    );
   const capturePath = join(directory, "api-surface.mitm");
   const captureInput = { capture_path: capturePath, format: "mitmproxy" };
   const captured = await client.callTool({
@@ -27,16 +40,10 @@ export async function verifyNativeApiSurface({
   });
   assert.notEqual(sensitive.isError, true, mcpTextValue(sensitive));
   const sensitiveParent = parseEvidence(JSON.parse(mcpTextValue(sensitive)));
-  const portable = await promisify(execFile)(
-    process.execPath,
-    [
-      entrypoint,
-      "inspect-web-network-capture",
-      capturePath,
-      "mitmproxy",
-      "--json",
-    ],
-    { env: environment, timeout: 40_000, maxBuffer: 4 * 1024 * 1024 },
+  const portable = await runCli(
+    ["inspect-web-network-capture", capturePath, "mitmproxy", "--json"],
+    environment,
+    40_000,
   );
   const portableParent = parseEvidence(JSON.parse(portable.stdout));
   await unlink(capturePath);
@@ -49,18 +56,10 @@ export async function verifyNativeApiSurface({
       view,
     }),
   );
-  const cli = await promisify(execFile)(
-    process.execPath,
-    [entrypoint, "inspect-analysis-view", inputPath, "--json"],
-    {
-      env: {
-        ...environment,
-        REA_MITMDUMP_COMMAND: join(directory, "unavailable-mitmdump"),
-      },
-      timeout: 30_000,
-      maxBuffer: 4 * 1024 * 1024,
-    },
-  );
+  const cli = await runCli(["inspect-analysis-view", inputPath, "--json"], {
+    ...environment,
+    REA_MITMDUMP_COMMAND: join(directory, "unavailable-mitmdump"),
+  });
   const projected = await client.callTool({
     name: "inspect_analysis_view",
     arguments: {
