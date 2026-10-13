@@ -14,6 +14,10 @@ class Generator:
 
     def running(self):
         root = Path(ctx.options.rea_fixture_root)
+        surface_spec = importlib.util.spec_from_file_location("rea_api_surface_flows", Path(__file__).with_name("api-surface-flows.py"))
+        surface_fixture = importlib.util.module_from_spec(surface_spec)
+        surface_spec.loader.exec_module(surface_fixture)
+        surface_fixture.write_api_surface_capture(root / "api-surface.mitm")
         spec = importlib.util.spec_from_file_location("rea_capture_under_test", ctx.options.rea_adapter_path)
         adapter = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(adapter)

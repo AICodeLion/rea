@@ -10,6 +10,7 @@ import {
   type UnsignedAnalysisView,
 } from "./analysisView.js";
 import { WebNetworkApiSurfaceAccumulator } from "./WebNetworkApiSurfaceAccumulator.js";
+import { apiSurfaceExclusionSchema } from "./webNetworkApiSurfaceFacts.js";
 
 export const apiSurfaceViewSchema = z.strictObject({
   kind: z.literal("api-surface"),
@@ -53,16 +54,11 @@ export const apiSurfaceFields = {
   excluded_records: z.array(
     z.strictObject({
       ordinal: z.number().int().nonnegative(),
-      reason: z.enum([
-        "url-redacted",
-        "url-unparseable",
-        "request-unavailable",
-        "method-unavailable",
-      ]),
+      reason: apiSurfaceExclusionSchema,
     }),
   ),
 };
-/** Group retained HAR request lines; format matches do not establish handler identity. */
+/** Group retained HTTP request lines; format matches do not establish handler identity. */
 export const projectWebNetworkApiSurfaceView = (
   parent: AnalysisViewParent,
   view: AnalysisViewRequest,
@@ -98,7 +94,7 @@ export const projectWebNetworkApiSurfaceView = (
       ]),
     );
   const capture = parsed.data;
-  if (capture.format !== "har")
+  if (capture.format !== "har" && capture.format !== "mitmproxy")
     return unsupported(
       `api-surface does not support capture format ${capture.format}.`,
     );
@@ -119,7 +115,7 @@ export const projectWebNetworkApiSurfaceView = (
   ]);
   if (!limitations.ok) return limitations;
   for (const record of capture.records) {
-    const added = accumulator.add(record);
+    const added = accumulator.add(record, capture.format);
     if (!added.ok) return added;
   }
   const page = accumulator.page(view.offset, view.limit);

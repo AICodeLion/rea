@@ -218,11 +218,27 @@ duplicates or the original numeric spelling of parsed native floats.
 
 ## Derived API surface
 
-Pass retained HAR Evidence to `inspect_analysis_view` with
+Pass retained HAR or native mitmproxy HTTP flow Evidence to `inspect_analysis_view` with
 `view: {"kind":"api-surface","offset":0,"limit":50}`. Omitted offset and limit
 are 0 and 50. The view groups request lines by method, WHATWG URL origin and
 path template, sorted by origin, template and method. Query strings, fragments,
 credentials, headers and bodies are not copied into groups.
+
+Native HTTP flows use the producer's method, scheme, host, port and request
+target. Origin-form and absolute HTTP(S) targets require explicit, consistent
+origin facts. IPv6 hosts retain their address semantics. Non-HTTP flows are
+excluded as `non-http-flow`; CONNECT, asterisk, relative and conflicting absolute
+targets as `unsupported-request-target`. Missing or unreadable request facts
+remain excluded rather than receiving a guessed origin. Native retained byte
+sidecars must agree with their producer text, byte count and digest; ambiguous
+coordinates and redacted bytes cannot supply a request field. The existing
+transport-authentication exclusions remain in effect.
+
+Native response status and one readable Content-Type header supply the response
+summary. Missing responses, unreadable header names, duplicate Content-Type
+headers, inconsistent numeric facts and invalid MIME values remain unknown.
+This projection uses retained facts after the source file is removed and never
+starts mitmdump again.
 
 | Rule       | Exact segment format                                 | Placeholder  |
 | ---------- | ---------------------------------------------------- | ------------ |
@@ -255,7 +271,7 @@ response fields, including HAR's `status: 0` and an empty `mimeType`, remain
 unknown, not invented statuses or MIME types.
 
 The view makes no handler-identity, schema or causality claim. It performs no
-network activity. Native mitmproxy, SAZ and qlog captures return a typed unsupported error.
+network activity. SAZ and qlog captures return a typed unsupported error.
 Parents inspected with `sensitive_values`, or whose Evidence does not record
 `sensitive_value_count`, return a typed unsupported error whose reason is the
 canonical token `sensitive_values_unretained`. The view would write path

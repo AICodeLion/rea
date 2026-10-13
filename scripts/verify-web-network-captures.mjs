@@ -20,6 +20,7 @@ import { runOwnedCommand } from "../dist/process/OwnedCommand.js";
 import { WEB_NETWORK_CAPTURE_LIMITS } from "../dist/domain/webNetworkCapture.js";
 import { mcpTextValue } from "./lib/mcp-verifier-results.mjs";
 import { createVerifierRun, completeVerifierRun } from "./lib/verifier-run.mjs";
+import { verifyNativeApiSurface } from "./lib/verify-native-api-surface.mjs";
 
 const executable = process.env.REA_MITMDUMP_COMMAND;
 if (
@@ -847,6 +848,12 @@ try {
       cases++;
     }
   }
+  cases += await verifyNativeApiSurface({
+    client,
+    entrypoint,
+    environment,
+    directory: runtime.path,
+  });
 } catch (cause) {
   failures.push(cause);
 } finally {
@@ -913,7 +920,7 @@ async function inspect(mode, input, errorCategory) {
     }
     assert.notEqual(result.isError, true, mcpTextValue(result));
     assertSensitiveLimitations(value, input.sensitive_values ?? []);
-    if (input.format === "har") {
+    if (input.format === "har" || input.format === "mitmproxy") {
       const surface = await client.callTool({
         name: "inspect_analysis_view",
         arguments: {

@@ -1,11 +1,9 @@
-import { z } from "zod";
 import {
   AnalysisInputError,
   AnalysisResourceConstraintError,
 } from "../analysisErrorCore.js";
 import type { AnalysisError } from "../analysisErrorBase.js";
 import { compareUnicodeCodePoints as compare } from "../unicodeCodePointOrder.js";
-import { parseRecordedTransportUrl } from "../recordedTransportUrl.js";
 import { err, ok, type Result } from "../result.js";
 import { MAX_JSON_DEPTH } from "../jsonValue.js";
 import {
@@ -14,6 +12,7 @@ import {
 } from "../webNetworkCapture.js";
 import { pageViewCoverage } from "./analysisViewCoverage.js";
 import type { UnsignedAnalysisView } from "./analysisView.js";
+import { apiSurfaceRecordFacts } from "./webNetworkApiSurfaceFacts.js";
 
 type Surface = Extract<UnsignedAnalysisView, { kind: "api-surface" }>;
 type Group = Surface["groups"][number];
@@ -44,16 +43,6 @@ interface GroupState {
 }
 type Buckets = Map<string, Map<string, Map<string, Map<string, GroupState>>>>;
 
-const requestSchema = z.object({
-  request: z.object({ url: z.unknown(), method: z.unknown() }),
-});
-const responseSchema = z.object({
-  response: z.object({
-    status: z.unknown().optional(),
-    content: z.unknown().optional(),
-  }),
-});
-const contentSchema = z.object({ mimeType: z.unknown().optional() });
 const MEDIA_TYPE_ESSENCE =
   /^[A-Za-z0-9!#$%&'*+.^_`|~-]+\/[A-Za-z0-9!#$%&'*+.^_`|~-]+$/u;
 
@@ -291,35 +280,31 @@ export class WebNetworkApiSurfaceAccumulator {
     return ok({ template: parts.join(""), rules: rules.join(""), segments });
   }
 
-  add(record: WebNetworkCaptureRecord): Result<void, AnalysisError> {
+  add(
+    record: WebNetworkCaptureRecord,
+    format: "har" | "mitmproxy" = "har",
+  ): Result<void, AnalysisError> {
     const limitations = this.addLimitations(record.limitations);
     if (!limitations.ok) return limitations;
-    const request = requestSchema.safeParse(record.reported);
-    if (!request.success)
-      return this.#exclude(record.ordinal, "request-unavailable");
-    const { url, method } = request.data.request;
-    if (url === null) return this.#exclude(record.ordinal, "url-redacted");
-    if (typeof url !== "string")
-      return this.#exclude(record.ordinal, "url-unparseable");
-    // Admission precedes URL parsing, text normalization and path materialization.
-    if (!this.#temporary(RECORD_SCRATCH_BYTES + textBytes(url.length)))
-      return this.#overBudget();
     try {
-      const parsed = parseRecordedTransportUrl(url);
-      if (parsed.origin === null)
+      const facts = apiSurfaceRecordFacts(record, format, (length) =>
+        this.#temporary(RECORD_SCRATCH_BYTES + textBytes(length))
+          ? ok(undefined)
+          : this.#overBudget(),
+      );
+      if (!facts.ok) return facts;
+      if (facts.value.kind === "excluded")
+        return this.#exclude(record.ordinal, facts.value.reason);
+      const { url, method, status, mime, transport: parsed } = facts.value;
+      if (url === null) return this.#exclude(record.ordinal, "url-redacted");
+      if (typeof url !== "string")
+        return this.#exclude(record.ordinal, "url-unparseable");
+      if (parsed === null || parsed.origin === null)
         return this.#exclude(record.ordinal, "url-unparseable");
       if (typeof method !== "string" || method.length === 0)
         return this.#exclude(record.ordinal, "method-unavailable");
       if (parsed.path === null)
         return this.#exclude(record.ordinal, "url-unparseable");
-      const response = responseSchema.safeParse(record.reported);
-      const status = response.success
-        ? response.data.response.status
-        : undefined;
-      const content = contentSchema.safeParse(
-        response.success ? response.data.response.content : undefined,
-      );
-      const mime = content.success ? content.data.mimeType : undefined;
       const rawMime = typeof mime === "string" ? mime : "";
       if (!this.#temporary(textBytes(rawMime.length)))
         return this.#overBudget();

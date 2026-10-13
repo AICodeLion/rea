@@ -83,9 +83,9 @@ it("pages groups independently of record completeness and preserves null digests
     },
   });
 });
-it("rejects native captures and malformed parents with typed errors", () => {
+it("rejects unsupported capture formats and malformed parents with typed errors", () => {
   const capture = analysisViewCaptureFixture();
-  for (const format of ["mitmproxy", "saz"] as const) {
+  for (const format of ["saz"] as const) {
     capture.format = format;
     expect(project(capture)).toMatchObject({
       ok: false,
