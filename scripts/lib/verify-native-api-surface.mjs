@@ -45,7 +45,7 @@ export async function verifyNativeApiSurface({
     environment,
     40_000,
   );
-  const portableParent = parseEvidence(JSON.parse(portable.stdout));
+  const portableParent = parseEvidence(JSON.parse(portable.stdout.text));
   await unlink(capturePath);
   const view = { kind: "api-surface" };
   const inputPath = join(directory, "native-surface-view.json");
@@ -69,7 +69,7 @@ export async function verifyNativeApiSurface({
   });
   assert.notEqual(projected.isError, true, mcpTextValue(projected));
   for (const evidence of [
-    parseEvidence(JSON.parse(cli.stdout)),
+    parseEvidence(JSON.parse(cli.stdout.text)),
     parseEvidence(JSON.parse(mcpTextValue(projected))),
   ]) {
     const surface = evidence.normalized_result;
